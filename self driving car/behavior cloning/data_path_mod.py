@@ -1,4 +1,4 @@
-# modify data path in the log file
+# modify data path in the driving_log.csv file
 
 import sys
 
