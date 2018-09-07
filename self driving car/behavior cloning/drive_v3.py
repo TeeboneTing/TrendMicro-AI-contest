@@ -61,6 +61,8 @@ def telemetry(sid, data):
     # This model currently assumes that the features of the model are just the images. Feel free to change this.
     # The driving model currently just outputs a constant throttle. Feel free to edit this.
     
+    # Turn off backward mode in Beta test
+    """
     global backward_switch
     global backward_counter
     if speed < 0.01:
@@ -71,9 +73,11 @@ def telemetry(sid, data):
             backward_counter = 0
     if speed > 0.1 and backward_switch == False:
         backward_counter = 0
-
+    """
     steering_angle = float(model.predict(image_array, batch_size=1))
     throttle = throttle_control(0.02,speed,steering_angle)
+    
+    """
     if backward_switch == True:
         steering_angle = -40 #-steering_angle*5
         throttle = -throttle*5
@@ -81,7 +85,7 @@ def telemetry(sid, data):
         if backward_counter > 15*6:
             backward_switch = False
             backward_counter = 0
-
+    """
 
     print(speed,steering_angle, throttle)
     send_control(steering_angle, throttle)
