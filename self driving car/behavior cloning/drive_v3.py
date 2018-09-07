@@ -13,8 +13,8 @@ from flask import Flask, render_template
 from io import BytesIO
 import os
 import numpy as np
-from config_v2 import *
-from load_data_v2 import preprocess
+from config_v3 import *
+from load_data_v3 import preprocess
 from keras.models import model_from_json
 from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array
 import sys
@@ -94,18 +94,6 @@ def throttle_control(default_throttle,current_speed,steering_angle):
     else:
         throttle = default_throttle
     return throttle
-
-def backward_control():
-    global backward_switch
-    global backward_counter
-    if backward_counter < 15*100:
-        backward_counter += 1
-    else:
-        backward_switch = False
-        backward_counter = 0
-    throttle = -1.0
-    steering_angle = 40.0
-    return throttle,steering_angle
 
 @sio.on('connect')
 def connect(sid, environ):
