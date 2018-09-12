@@ -13,7 +13,7 @@ from flask import Flask, render_template
 from io import BytesIO
 import os
 import numpy as np
-from config_v3 import *
+from config_v4 import *
 from load_data_v4 import preprocess
 from keras.models import model_from_json
 from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array
@@ -30,6 +30,15 @@ model = None
 prev_image_array = None
 backward_switch = False
 backward_counter = 0
+
+cat2sign = {
+    0: "NO SIGN",
+    1: "ForkLeft",
+    2: "ForkRight",
+    3: "WarningLeft",
+    4: "WarningRight"
+}
+
 
 @sio.on('telemetry')
 def telemetry(sid, data):
@@ -60,7 +69,7 @@ def telemetry(sid, data):
 
     # This model currently assumes that the features of the model are just the images. Feel free to change this.
     # The driving model currently just outputs a constant throttle. Feel free to edit this.
-    
+    """
     global backward_switch
     global backward_counter
     if speed < 0.01:
@@ -71,9 +80,29 @@ def telemetry(sid, data):
             backward_counter = 0
     if speed > 0.1 and backward_switch == False:
         backward_counter = 0
+    """
+    #steering_angle = float(model.predict(image_array, batch_size=1))
+    steering_angle, have_sign, sign_cat = model.predict(image_array, batch_size=1)
+    steering_angle = float(steering_angle)
+    sign_cat = cat2sign[np.argmax(sign_cat)]
+    if have_sign >= 0.5:
+        have_sign = "TRAFFIC SIGN!"
+    else:
+        have_sign = "NO SIGN"
 
-    steering_angle = float(model.predict(image_array, batch_size=1))
-    throttle = throttle_control(0.02,speed,steering_angle)
+    if sign_cat in ["ForkLeft", "WarningRight"]:
+        print("=====TURN LEFT=====")
+        steering_angle -= 5.0
+    elif sign_cat in ["ForkRight", "WarningLeft"]:
+        print("=====TURN RIGHT=====")
+        steering_angle += 5.0
+    else:
+        pass
+    
+    
+    throttle = 0.02 #throttle_control(0.02,speed,steering_angle)
+    
+    """
     if backward_switch == True:
         steering_angle = -40 #-steering_angle*5
         throttle = -throttle*5
@@ -81,9 +110,9 @@ def telemetry(sid, data):
         if backward_counter > 15*6:
             backward_switch = False
             backward_counter = 0
+    """
 
-
-    print(speed,steering_angle, throttle)
+    print(speed,steering_angle, throttle, have_sign, sign_cat, sep="\t")
     send_control(steering_angle, throttle)
 
 def throttle_control(default_throttle,current_speed,steering_angle):
@@ -134,4 +163,4 @@ if __name__ == '__main__':
     app = socketio.Middleware(sio, app)
 
     # deploy as an eventlet WSGI server
-    eventlet.wsgi.server(eventlet.listen(('', 4444)), app)
+    eventlet.wsgi.server(eventlet.listen(('', 4567)), app)
