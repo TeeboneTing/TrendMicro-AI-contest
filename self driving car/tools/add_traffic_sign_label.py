@@ -59,7 +59,7 @@ def add_traffic_sign_features(driving_log,traffic_sign_dict):
     return driving_log
 
 
-def read_traffic_signs(label_folder,only_important=True):
+def read_traffic_signs(label_folder,only_important=False):
     traffic_signs = {
        "ForkLeft":     [],
        "ForkRight":    [],

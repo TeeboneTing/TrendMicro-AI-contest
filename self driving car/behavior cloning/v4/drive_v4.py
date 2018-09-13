@@ -36,7 +36,11 @@ cat2sign = {
     1: "ForkLeft",
     2: "ForkRight",
     3: "WarningLeft",
-    4: "WarningRight"
+    4: "WarningRight",
+    5: "TurnLeft",
+    6: "TurnRight",
+    7: "UTurnLeft",
+    8: "UTurnRight"
 }
 
 
@@ -92,10 +96,10 @@ def telemetry(sid, data):
 
     if sign_cat in ["ForkLeft", "WarningRight"]:
         print("=====TURN LEFT=====")
-        steering_angle -= 5.0
+        #steering_angle -= 5.0
     elif sign_cat in ["ForkRight", "WarningLeft"]:
         print("=====TURN RIGHT=====")
-        steering_angle += 5.0
+        #steering_angle += 5.0
     else:
         pass
     

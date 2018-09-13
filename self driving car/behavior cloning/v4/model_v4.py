@@ -29,13 +29,13 @@ def get_nvidia_model(summary=True):
     # standardize input
     x = Lambda(lambda z: z / 127.5 - 1.)(input_frame)
 
-    x = Convolution2D(24, 5, 5, border_mode='valid', subsample=(2, 2), init=init)(x)
-    x = LeakyReLU()(x)
-    x = Dropout(0.2)(x)
     x = Convolution2D(36, 5, 5, border_mode='valid', subsample=(2, 2), init=init)(x)
     x = LeakyReLU()(x)
     x = Dropout(0.2)(x)
     x = Convolution2D(48, 5, 5, border_mode='valid', subsample=(2, 2), init=init)(x)
+    x = LeakyReLU()(x)
+    x = Dropout(0.2)(x)
+    x = Convolution2D(64, 5, 5, border_mode='valid', subsample=(2, 2), init=init)(x)
     x = LeakyReLU()(x)
     x = Dropout(0.2)(x)
     x = Convolution2D(64, 3, 3, border_mode='valid', init=init)(x)
@@ -58,7 +58,8 @@ def get_nvidia_model(summary=True):
     #out = Dense(2, init=init)(x) # (steer,throttle)
     steer_out = Dense(1, init=init, name="steer")(x)
     have_traffic_sign_out = Dense(1,init=init, activation='sigmoid', name="have_traffic_sign")(x)
-    traffic_sign_cat_out = Dense(5, init=init, activation='softmax', name="sign_cat")(x) # only important 4 traffic signs + no signs now
+    #traffic_sign_cat_out = Dense(5, init=init, activation='softmax', name="sign_cat")(x) # only important 4 traffic signs + no signs now
+    traffic_sign_cat_out = Dense(9, init=init, activation='softmax', name="sign_cat")(x) # all 8 traffic signs + no signs now
 
     model = Model(input=input_frame, output=[steer_out,have_traffic_sign_out,traffic_sign_cat_out])
 
@@ -71,7 +72,7 @@ def get_nvidia_model(summary=True):
 if __name__ == '__main__':
 
     # split udacity csv data into training and validation
-    train_data, val_data = split_train_val(csv_driving_data='data/driving_log-human-track-all-traffic-sign.csv')
+    train_data, val_data = split_train_val(csv_driving_data='data/driving_log-human-track-all-traffic-sign-all.csv')
 
     # get network model and compile it (default Adam opt)
     nvidia_net = get_nvidia_model(summary=True)
@@ -83,7 +84,7 @@ if __name__ == '__main__':
         weights_path = sys.argv[2]
         nvidia_net.load_weights(weights_path)
     #nvidia_net.compile(optimizer='adam', loss='mse')
-    nvidia_net.compile(optimizer='sgd', loss=['mae','binary_crossentropy','categorical_crossentropy'])
+    nvidia_net.compile(optimizer='rmsprop', loss=['mae','binary_crossentropy','categorical_crossentropy'])
 
     # json dump of model architecture
     with open('logs/model.json', 'w') as f:

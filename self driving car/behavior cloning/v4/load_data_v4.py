@@ -117,9 +117,9 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
         if augment_data:
 
             # mirror images with chance=0.5
-            if random.choice([True, False]):
-                frame = frame[:, ::-1, :]
-                steer *= -1.
+            #if random.choice([True, False]):
+            #    frame = frame[:, ::-1, :]
+            #    steer *= -1.
 
             # perturb slightly steering direction
             steer += np.random.normal(loc=0, scale=CONFIG['augmentation_steer_sigma'])
@@ -144,11 +144,12 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
             y_sign_category[loaded_elements] = sign_category
             loaded_elements += 1
         #y = np.concatenate(([y_steer],[y_throttle]),axis=0)
+        #y = y.T
         #pdb.set_trace()
     if K.backend() == 'theano':
         X = X.transpose(0, 3, 1, 2)
-    return X,[y_steer,y_have_traffic_sign,to_categorical(y_sign_category,num_classes=5)]
-    #return X, y.T
+    #return X,[y_steer,y_have_traffic_sign,to_categorical(y_sign_category,num_classes=5)]
+    return X,[y_steer,y_have_traffic_sign,to_categorical(y_sign_category,num_classes=9)]
 
 
 def generate_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augment_data=True, bias=0.5):
