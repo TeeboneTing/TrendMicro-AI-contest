@@ -14,6 +14,7 @@ import argparse
 import cv2
 import pdb
 import csv
+import platform
 
 from sample_bot import PID
 
@@ -62,7 +63,10 @@ def run():
 
     # Read json files into memory
     jfile_list = glob.glob(arguments['json_folder']+"/*")
-    f_prefix = [ jfile_name.split("\\")[-1].split('.')[0] for jfile_name in jfile_list]
+    if platform.system() == "Windows":
+        f_prefix = [ jfile_name.split("\\")[-1].split('.')[0] for jfile_name in jfile_list]
+    else:
+        f_prefix = [ jfile_name.split("/")[-1].split('.')[0] for jfile_name in jfile_list]
     #print(f_prefix)
     json_data = []
     for jfile in jfile_list:
