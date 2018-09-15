@@ -104,7 +104,7 @@ def telemetry(sid, data):
         pass
     
     
-    throttle = 0.02 #throttle_control(0.02,speed,steering_angle)
+    throttle = throttle_control(0.035,speed,steering_angle)
     
     """
     if backward_switch == True:
