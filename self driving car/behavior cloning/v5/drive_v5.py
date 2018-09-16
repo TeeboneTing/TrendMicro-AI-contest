@@ -13,8 +13,8 @@ from flask import Flask, render_template
 from io import BytesIO
 import os
 import numpy as np
-from config_v4 import *
-from load_data_v4 import preprocess
+from config_v5 import *
+from load_data_v5 import preprocess
 from keras.models import model_from_json
 from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array
 import sys
@@ -33,16 +33,13 @@ backward_counter = 0
 
 cat2sign = {
     0: "NO SIGN",
-    1: "ForkLeft",
-    2: "ForkRight",
-    3: "WarningLeft",
-    4: "WarningRight",
-    5: "TurnLeft",
-    6: "TurnRight",
-    7: "UTurnLeft",
-    8: "UTurnRight"
+    1: "Left",
+    2: "Right",
+    3: "Others"
 }
 
+# 2 previous frames
+history_img_array = np.zeros((2,CONFIG['input_height'], CONFIG['input_width'],3),np.float32)
 
 @sio.on('telemetry')
 def telemetry(sid, data):
@@ -68,8 +65,15 @@ def telemetry(sid, data):
     # perform preprocessing (crop, resize etc.)
     image_array = preprocess(frame_bgr=image_array)
 
+    # empty history frame
+    if  np.count_nonzero(history_img_array) == 0: 
+        history_img_array[0] = image_array
+        history_img_array[1] = image_array
+
+
+    model_input = np.concatenate((history_img_array[0],history_img_array[1],image_array),axis=2)
     # add singleton batch dimension
-    image_array = np.expand_dims(image_array, axis=0)
+    model_input = np.expand_dims(model_input, axis=0)
 
     # This model currently assumes that the features of the model are just the images. Feel free to change this.
     # The driving model currently just outputs a constant throttle. Feel free to edit this.
@@ -86,25 +90,21 @@ def telemetry(sid, data):
         backward_counter = 0
     """
     #steering_angle = float(model.predict(image_array, batch_size=1))
-    steering_angle, have_sign, sign_cat = model.predict(image_array, batch_size=1)
+    steering_angle, throttle, sign_cat = model.predict(model_input, batch_size=1)
     steering_angle = float(steering_angle)
+    #throttle = float(throttle)
     sign_cat = cat2sign[np.argmax(sign_cat)]
-    if have_sign >= 0.5:
-        have_sign = "TRAFFIC SIGN!"
-    else:
-        have_sign = "NO SIGN"
 
-    if sign_cat in ["ForkLeft", "WarningRight"]:
+    if sign_cat == "Left":
         print("=====TURN LEFT=====")
         #steering_angle -= 5.0
-    elif sign_cat in ["ForkRight", "WarningLeft"]:
+    elif sign_cat == "Right":
         print("=====TURN RIGHT=====")
         #steering_angle += 5.0
     else:
         pass
-    
-    
-    throttle = 0.02 #throttle_control(0.02,speed,steering_angle)
+
+    throttle = throttle_control(0.035,speed,steering_angle)
     
     """
     if backward_switch == True:
@@ -116,14 +116,19 @@ def telemetry(sid, data):
             backward_counter = 0
     """
 
-    print(speed,steering_angle, throttle, have_sign, sign_cat, sep="\t")
+    print(speed,steering_angle, throttle, sign_cat, sep="\t")
     send_control(steering_angle, throttle)
+
+    # Update history frame
+    history_img_array[0] = history_img_array[1]
+    history_img_array[1] = image_array
+
 
 def throttle_control(default_throttle,current_speed,steering_angle):
     if abs(steering_angle) > 1.0 and abs(steering_angle) <= 5.0 and current_speed > 1.0:
-        throttle = 0.01
+        throttle = 0.02
     elif abs(steering_angle) > 5.0:
-        throttle = 0.005
+        throttle = 0.01
     else:
         throttle = default_throttle
     return throttle
