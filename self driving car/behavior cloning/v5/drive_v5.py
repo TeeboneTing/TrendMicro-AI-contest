@@ -23,13 +23,19 @@ import sys
 import tensorflow as tf
 
 #tf.python.control_flow_ops = tf
+from sample_bot import PID
+THROTTLE_PID_Kp             = 0.26
+THROTTLE_PID_Ki             = 0.015
+THROTTLE_PID_Kd             = 0.007
+THROTTLE_PID_max_integral   = 1.0
+throttle_pid                = PID(Kp=THROTTLE_PID_Kp  , Ki=THROTTLE_PID_Ki  , Kd=THROTTLE_PID_Kd  , max_integral=THROTTLE_PID_max_integral)
 
 sio = socketio.Server()
 app = Flask(__name__)
 model = None
 prev_image_array = None
-backward_switch = False
-backward_counter = 0
+#backward_switch = False
+#backward_counter = 0
 
 cat2sign = {
     0: "NO SIGN",
@@ -74,6 +80,7 @@ def telemetry(sid, data):
     model_input = np.concatenate((history_img_array[0],history_img_array[1],image_array),axis=2)
     # add singleton batch dimension
     model_input = np.expand_dims(model_input, axis=0)
+    model_input_upper = np.expand_dims(image_array, axis=0)
 
     # This model currently assumes that the features of the model are just the images. Feel free to change this.
     # The driving model currently just outputs a constant throttle. Feel free to edit this.
@@ -90,9 +97,9 @@ def telemetry(sid, data):
         backward_counter = 0
     """
     #steering_angle = float(model.predict(image_array, batch_size=1))
-    steering_angle, throttle, sign_cat = model.predict(model_input, batch_size=1)
+    steering_angle, cmd_speed, sign_cat = model.predict([model_input,model_input_upper], batch_size=1)
     steering_angle = float(steering_angle)
-    #throttle = float(throttle)
+    cmd_speed = float(cmd_speed)
     sign_cat = cat2sign[np.argmax(sign_cat)]
 
     if sign_cat == "Left":
@@ -104,8 +111,10 @@ def telemetry(sid, data):
     else:
         pass
 
-    throttle = throttle_control(0.035,speed,steering_angle)
+    #throttle = throttle_control(0.035,speed,steering_angle)
     
+    throttle_pid.assign_set_point(cmd_speed)
+    throttle = throttle_pid.update(speed)
     """
     if backward_switch == True:
         steering_angle = -40 #-steering_angle*5

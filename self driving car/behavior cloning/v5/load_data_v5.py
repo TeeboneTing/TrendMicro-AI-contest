@@ -30,7 +30,7 @@ def split_train_val(csv_driving_data, test_size=0.2):
     return train_data, val_data
 
 
-def preprocess(frame_bgr, verbose=False):
+def preprocess(frame_bgr, verbose=False, only_upper=False):
     """
     Perform preprocessing steps on a single bgr frame.
     These inlcude: cropping, resizing, eventually converting to grayscale
@@ -43,8 +43,11 @@ def preprocess(frame_bgr, verbose=False):
     h, w = CONFIG['input_height'], CONFIG['input_width']
 
     # crop image (remove useless information)
-    #frame_cropped = frame_bgr[CONFIG['crop_height'], :, :]
-    frame_cropped = frame_bgr
+    if only_upper:
+        frame_cropped = frame_bgr[CONFIG['crop_upper'], :, :]
+    else:
+        frame_cropped = frame_bgr[CONFIG['crop_height'], :, :]
+
 
     # resize image
     frame_resized = cv2.resize(frame_cropped, dsize=(w, h))
@@ -80,10 +83,10 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
 
     # prepare output structures
     X = np.zeros(shape=(batchsize, h, w, c), dtype=np.float32)
+    X_upper = np.zeros(shape=(batchsize, h, w, 3), dtype=np.float32)
     y_steer = np.zeros(shape=(batchsize,), dtype=np.float32)
-    y_have_traffic_sign = np.zeros(shape=(batchsize,), dtype=np.int)
     y_sign_category = np.zeros(shape=(batchsize,), dtype=np.int)
-    y_throttle = np.zeros(shape=(batchsize,), dtype=np.float32)
+    y_speed = np.zeros(shape=(batchsize,), dtype=np.float32)
 
 
     # shuffle data
@@ -96,7 +99,7 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
 
         # cast strings to float32
         steer = np.float32(steer)
-        throttle = np.float32(throttle)
+        speed = np.float32(speed)
         sign_category = np.int(sign_category)
 
         # randomly choose which camera to use among (central, left, right)
@@ -108,12 +111,7 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
         frame2 = preprocess(cv2.imread( prev1_path.strip() ))
         frame3 = preprocess(cv2.imread( ct_path.strip() ))
 
-        #elif camera == 'left':
-        #    frame = preprocess(cv2.imread(join(data_dir, lt_path.strip())))
-        #    steer = steer + delta_correction
-        #elif camera == 'right':
-        #    frame = preprocess(cv2.imread(join(data_dir, rt_path.strip())))
-        #    steer = steer - delta_correction
+        frame_upper = preprocess(cv2.imread( ct_path.strip() ), only_upper = True)
         
         if augment_data:
 
@@ -151,8 +149,9 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
         #else:
         if True:
             X[loaded_elements] = frame
+            X_upper[loaded_elements] = frame_upper
             y_steer[loaded_elements] = steer
-            y_throttle[loaded_elements] = throttle
+            y_speed[loaded_elements] = speed
             y_sign_category[loaded_elements] = sign_category
             loaded_elements += 1
         #y = np.concatenate(([y_steer],[y_throttle]),axis=0)
@@ -160,7 +159,7 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
         #pdb.set_trace()
     if K.backend() == 'theano':
         X = X.transpose(0, 3, 1, 2)
-    return X,[y_steer,y_throttle,to_categorical(y_sign_category,num_classes=4)]
+    return [X,X_upper],[y_steer,y_speed,to_categorical(y_sign_category,num_classes=4)]
 
 
 def generate_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augment_data=True, bias=0.5):
