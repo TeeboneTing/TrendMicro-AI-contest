@@ -22,7 +22,6 @@ def split_train_val(csv_driving_data, test_size=0.2):
     """
     with open(csv_driving_data, 'r') as f:
         reader = csv.reader(f)
-        #driving_data = [row for row in reader][1:]
         driving_data = [row for row in reader]
 
     train_data, val_data = train_test_split(driving_data, test_size=test_size, random_state=1)
@@ -30,7 +29,7 @@ def split_train_val(csv_driving_data, test_size=0.2):
     return train_data, val_data
 
 
-def preprocess(frame_bgr, verbose=False, only_upper=False):
+def preprocess(frame_bgr, verbose=False):
     """
     Perform preprocessing steps on a single bgr frame.
     These inlcude: cropping, resizing, eventually converting to grayscale
@@ -42,12 +41,7 @@ def preprocess(frame_bgr, verbose=False, only_upper=False):
     # set training images resized shape
     h, w = CONFIG['input_height'], CONFIG['input_width']
 
-    # crop image (remove useless information)
-    if only_upper:
-        frame_cropped = frame_bgr[CONFIG['crop_upper'], :, :]
-    else:
-        frame_cropped = frame_bgr[CONFIG['crop_height'], :, :]
-
+    frame_cropped = frame_bgr[CONFIG['crop_height'], :, :]
 
     # resize image
     frame_resized = cv2.resize(frame_cropped, dsize=(w, h))
@@ -83,11 +77,8 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
 
     # prepare output structures
     X = np.zeros(shape=(batchsize, h, w, c), dtype=np.float32)
-    #X_upper = np.zeros(shape=(batchsize, h, w, 3), dtype=np.float32)
     y_steer = np.zeros(shape=(batchsize,), dtype=np.float32)
-    #y_sign_category = np.zeros(shape=(batchsize,), dtype=np.int)
     y_speed = np.zeros(shape=(batchsize,), dtype=np.float32)
-
 
     # shuffle data
     shuffled_data = shuffle(data)
@@ -100,7 +91,6 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
         # cast strings to float32
         steer = np.float32(steer)
         speed = np.float32(speed)
-        #sign_category = np.int(sign_category)
 
         # randomly choose which camera to use among (central, left, right)
         # in case the chosen camera is not the frontal one, adjust steer accordingly
@@ -111,11 +101,7 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
         frame2 = preprocess(cv2.imread( prev1_path.strip() ))
         frame3 = preprocess(cv2.imread( ct_path.strip() ))
 
-        #frame_upper = preprocess(cv2.imread( ct_path.strip() ), only_upper = True)
-        
         if augment_data:
-
-
             # perturb slightly steering direction
             steer += np.random.normal(loc=0, scale=CONFIG['augmentation_steer_sigma'])
 
@@ -136,13 +122,7 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
                 frame3[:, :, 2] = np.clip(frame3[:, :, 2], a_min=0, a_max=255)
                 frame3 = cv2.cvtColor(frame3, code=cv2.COLOR_HSV2BGR)
                 
-                #frame_upper = cv2.cvtColor(frame_upper, code=cv2.COLOR_BGR2HSV)
-                #frame_upper[:, :, 2] *= random.uniform(CONFIG['augmentation_value_min'], CONFIG['augmentation_value_max'])
-                #frame_upper[:, :, 2] = np.clip(frame_upper[:, :, 2], a_min=0, a_max=255)
-                #frame_upper = cv2.cvtColor(frame_upper, code=cv2.COLOR_HSV2BGR)
-        
         frame = np.concatenate((frame1,frame2,frame3),axis=2)
-        #frame = frame3
 
         # mirror images with chance=0.5
         if random.choice([True, False]):
@@ -156,16 +136,12 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
         #else:
         if True:
             X[loaded_elements] = frame
-            #X_upper[loaded_elements] = frame_upper
             y_steer[loaded_elements] = steer
             y_speed[loaded_elements] = speed
-            #y_sign_category[loaded_elements] = sign_category
             loaded_elements += 1
         #y = np.concatenate(([y_steer],[y_throttle]),axis=0)
         #y = y.T
         #pdb.set_trace()
-    if K.backend() == 'theano':
-        X = X.transpose(0, 3, 1, 2)
     #return [X,X_upper],[y_steer,y_speed,to_categorical(y_sign_category,num_classes=4)]
     return [X],[y_steer,y_speed]
 

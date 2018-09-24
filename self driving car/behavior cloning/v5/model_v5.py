@@ -1,5 +1,5 @@
 from keras.models import Model
-from keras.layers import Input, Convolution2D, Flatten, Dense, Dropout, Lambda, LeakyReLU, Concatenate, MaxPooling2D
+from keras.layers import Input, Convolution2D, Flatten, Dense, Dropout, Lambda, LeakyReLU
 from keras.callbacks import ModelCheckpoint, CSVLogger
 import keras.backend as K
 from keras.models import model_from_json
@@ -23,31 +23,21 @@ def get_nvidia_model(summary=True):
     init = 'glorot_uniform'
 
     input_frame_x = Input(shape=(NVIDIA_H, NVIDIA_W, CONFIG['input_channels']))
-    #input_frame_upper = Input(shape=(NVIDIA_H, NVIDIA_W, 3))
 
     # standardize input
     input_x = Lambda(lambda z: z / 127.5 - 1.)(input_frame_x)
-    #input_upper = Lambda(lambda z: z / 127.5 - 1.)(input_frame_upper)
 
     x = Convolution2D(24, 5, 5, border_mode='valid', subsample=(2, 2), init=init, activation='relu')(input_x)
-    #x = LeakyReLU()(x)
     x = Dropout(0.2)(x)
     x = Convolution2D(36, 5, 5, border_mode='valid', subsample=(2, 2), init=init, activation='relu')(x)
-    #x = LeakyReLU()(x)
     x = Dropout(0.2)(x)
     x = Convolution2D(48, 5, 5, border_mode='valid', subsample=(2, 2), init=init,activation='relu' )(x)
-    #x = LeakyReLU()(x)
     x = Dropout(0.2)(x)
     x = Convolution2D(64, 3, 3, border_mode='valid', init=init,activation='relu')(x)
-    #x = LeakyReLU()(x)
     x = Dropout(0.2)(x)
     x = Convolution2D(64, 3, 3, border_mode='valid', init=init,activation='relu')(x)
-    #x = LeakyReLU()(x)
     x = Dropout(0.2)(x)
     x = Flatten()(x)
-
-   # Concat and FC together
-    #x = Concatenate()([x,y])
 
     x = Dense(100, init=init)(x)
     x = LeakyReLU()(x)
