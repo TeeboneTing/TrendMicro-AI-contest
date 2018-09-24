@@ -14,7 +14,7 @@ CONFIG = {
     'augmentation_value_min': 0.2,
     'augmentation_value_max': 1.5,
     'bias': 0.8,
-    'crop_height': range(70, 240),
-    'crop_upper': range(0, 120)
+    'crop_height': range(0, 240),
+    #'crop_upper': range(0, 100)
 }
 

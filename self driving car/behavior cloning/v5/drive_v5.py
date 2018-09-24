@@ -33,16 +33,8 @@ throttle_pid                = PID(Kp=THROTTLE_PID_Kp  , Ki=THROTTLE_PID_Ki  , Kd
 sio = socketio.Server()
 app = Flask(__name__)
 model = None
-prev_image_array = None
 #backward_switch = False
 #backward_counter = 0
-
-cat2sign = {
-    0: "NO SIGN",
-    1: "Left",
-    2: "Right",
-    3: "Others"
-}
 
 # 2 previous frames
 history_img_array = np.zeros((2,CONFIG['input_height'], CONFIG['input_width'],3),np.float32)
@@ -80,7 +72,6 @@ def telemetry(sid, data):
     model_input = np.concatenate((history_img_array[0],history_img_array[1],image_array),axis=2)
     # add singleton batch dimension
     model_input = np.expand_dims(model_input, axis=0)
-    model_input_upper = np.expand_dims(image_array, axis=0)
 
     # This model currently assumes that the features of the model are just the images. Feel free to change this.
     # The driving model currently just outputs a constant throttle. Feel free to edit this.
@@ -97,19 +88,9 @@ def telemetry(sid, data):
         backward_counter = 0
     """
     #steering_angle = float(model.predict(image_array, batch_size=1))
-    steering_angle, cmd_speed, sign_cat = model.predict([model_input,model_input_upper], batch_size=1)
+    steering_angle, cmd_speed = model.predict(model_input, batch_size=1)
     steering_angle = float(steering_angle)
     cmd_speed = float(cmd_speed)
-    sign_cat = cat2sign[np.argmax(sign_cat)]
-
-    if sign_cat == "Left":
-        print("=====TURN LEFT=====")
-        #steering_angle -= 5.0
-    elif sign_cat == "Right":
-        print("=====TURN RIGHT=====")
-        #steering_angle += 5.0
-    else:
-        pass
 
     #throttle = throttle_control(0.035,speed,steering_angle)
     
@@ -125,7 +106,7 @@ def telemetry(sid, data):
             backward_counter = 0
     """
 
-    print(speed,steering_angle, throttle, sign_cat, sep="\t")
+    print(speed,steering_angle, throttle, sep="\t")
     send_control(steering_angle, throttle)
 
     # Update history frame

@@ -83,9 +83,9 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
 
     # prepare output structures
     X = np.zeros(shape=(batchsize, h, w, c), dtype=np.float32)
-    X_upper = np.zeros(shape=(batchsize, h, w, 3), dtype=np.float32)
+    #X_upper = np.zeros(shape=(batchsize, h, w, 3), dtype=np.float32)
     y_steer = np.zeros(shape=(batchsize,), dtype=np.float32)
-    y_sign_category = np.zeros(shape=(batchsize,), dtype=np.int)
+    #y_sign_category = np.zeros(shape=(batchsize,), dtype=np.int)
     y_speed = np.zeros(shape=(batchsize,), dtype=np.float32)
 
 
@@ -95,12 +95,12 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
     loaded_elements = 0
     while loaded_elements < batchsize:
 
-        prev2_path, prev1_path, ct_path, steer, throttle, brake, speed, time_stamp, lap, sign_category  = shuffled_data.pop()
+        prev2_path, prev1_path, ct_path, steer, throttle, brake, speed, time_stamp, lap  = shuffled_data.pop()
 
         # cast strings to float32
         steer = np.float32(steer)
         speed = np.float32(speed)
-        sign_category = np.int(sign_category)
+        #sign_category = np.int(sign_category)
 
         # randomly choose which camera to use among (central, left, right)
         # in case the chosen camera is not the frontal one, adjust steer accordingly
@@ -111,14 +111,10 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
         frame2 = preprocess(cv2.imread( prev1_path.strip() ))
         frame3 = preprocess(cv2.imread( ct_path.strip() ))
 
-        frame_upper = preprocess(cv2.imread( ct_path.strip() ), only_upper = True)
+        #frame_upper = preprocess(cv2.imread( ct_path.strip() ), only_upper = True)
         
         if augment_data:
 
-            # mirror images with chance=0.5
-            #if random.choice([True, False]):
-            #    frame = frame[:, ::-1, :]
-            #    steer *= -1.
 
             # perturb slightly steering direction
             steer += np.random.normal(loc=0, scale=CONFIG['augmentation_steer_sigma'])
@@ -139,9 +135,20 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
                 frame3[:, :, 2] *= random.uniform(CONFIG['augmentation_value_min'], CONFIG['augmentation_value_max'])
                 frame3[:, :, 2] = np.clip(frame3[:, :, 2], a_min=0, a_max=255)
                 frame3 = cv2.cvtColor(frame3, code=cv2.COLOR_HSV2BGR)
+                
+                #frame_upper = cv2.cvtColor(frame_upper, code=cv2.COLOR_BGR2HSV)
+                #frame_upper[:, :, 2] *= random.uniform(CONFIG['augmentation_value_min'], CONFIG['augmentation_value_max'])
+                #frame_upper[:, :, 2] = np.clip(frame_upper[:, :, 2], a_min=0, a_max=255)
+                #frame_upper = cv2.cvtColor(frame_upper, code=cv2.COLOR_HSV2BGR)
         
         frame = np.concatenate((frame1,frame2,frame3),axis=2)
+        #frame = frame3
 
+        # mirror images with chance=0.5
+        if random.choice([True, False]):
+            frame = frame[:, ::-1, :]
+            steer *= -1.
+        
         # check that each element in the batch meet the condition
         #steer_magnitude_thresh = np.random.rand()
         #if (abs(steer) + bias) < steer_magnitude_thresh:
@@ -149,17 +156,18 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
         #else:
         if True:
             X[loaded_elements] = frame
-            X_upper[loaded_elements] = frame_upper
+            #X_upper[loaded_elements] = frame_upper
             y_steer[loaded_elements] = steer
             y_speed[loaded_elements] = speed
-            y_sign_category[loaded_elements] = sign_category
+            #y_sign_category[loaded_elements] = sign_category
             loaded_elements += 1
         #y = np.concatenate(([y_steer],[y_throttle]),axis=0)
         #y = y.T
         #pdb.set_trace()
     if K.backend() == 'theano':
         X = X.transpose(0, 3, 1, 2)
-    return [X,X_upper],[y_steer,y_speed,to_categorical(y_sign_category,num_classes=4)]
+    #return [X,X_upper],[y_steer,y_speed,to_categorical(y_sign_category,num_classes=4)]
+    return [X],[y_steer,y_speed]
 
 
 def generate_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augment_data=True, bias=0.5):
