@@ -47,18 +47,42 @@ def preprocess(frame_bgr, verbose=False):
     # resize image
     frame_resized = cv2.resize(frame_cropped, dsize=(w, h))
 
-    # eventually change color space
-    if CONFIG['input_channels'] == 1:
-        frame_resized = np.expand_dims(cv2.cvtColor(frame_resized, cv2.COLOR_BGR2YUV)[:, :, 0], 2)
-
+    # 1. Fill all BGR color to full color
+    # 2. Fill yellow wall to black wall 
+    frame_flatten = flatten_bgr(frame_resized)
+    
     if verbose:
         plt.figure(1), plt.imshow(cv2.cvtColor(frame_bgr, code=cv2.COLOR_BGR2RGB))
         plt.figure(2), plt.imshow(cv2.cvtColor(frame_cropped, code=cv2.COLOR_BGR2RGB))
         plt.figure(3), plt.imshow(cv2.cvtColor(frame_resized, code=cv2.COLOR_BGR2RGB))
         plt.show()
 
-    return frame_resized.astype('float32')
+    return frame_flatten.astype('float32')
 
+def flatten_bgr(img):
+    b, g, r = cv2.split(img)
+    
+    r_filter = (r == np.maximum(np.maximum(r, g), b)) & (r >= 120) & (g < 150) & (b < 150)
+    g_filter = (g == np.maximum(np.maximum(r, g), b)) & (g >= 120) & (r < 150) & (b < 150)
+    b_filter = (b == np.maximum(np.maximum(r, g), b)) & (b >= 120) & (r < 150) & (g < 150)
+    
+    y_filter = ((r >= 128) & (g >= 128) & (b < 100))
+    w_filter = ((r >= 200) & (g >= 200) & (b >= 200))
+
+    r[y_filter], g[y_filter] = 255, 255
+    b[np.invert(y_filter)] = 0
+
+    b[b_filter], b[np.invert(b_filter)] = 255, 0
+    r[r_filter], r[np.invert(r_filter)] = 255, 0
+    g[g_filter], g[np.invert(g_filter)] = 255, 0
+
+    r[w_filter] = 255
+    g[w_filter] = 255
+    b[w_filter] = 255
+    flattened = cv2.merge((b, g, r))
+    #pdb.set_trace()
+
+    return flattened
 
 def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augment_data=True, bias=0.5):
     """
@@ -79,7 +103,8 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
     # prepare output structures
     X = np.zeros(shape=(batchsize, h, w, c), dtype=np.float32)
     y_steer = np.zeros(shape=(batchsize,), dtype=np.float32)
-    y_throttle = np.zeros(shape=(batchsize,), dtype=np.float32)
+    #y_throttle = np.zeros(shape=(batchsize,), dtype=np.float32)
+    y_speed = np.zeros(shape=(batchsize,), dtype=np.float32)
 
     # shuffle data
     shuffled_data = shuffle(data)
@@ -92,7 +117,7 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
 
         # cast strings to float32
         steer = np.float32(steer)
-        throttle = np.float32(throttle)
+        speed = np.float32(speed)
 
         # randomly choose which camera to use among (central, left, right)
         # in case the chosen camera is not the frontal one, adjust steer accordingly
@@ -135,13 +160,14 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
         if True:
             X[loaded_elements] = frame
             y_steer[loaded_elements] = steer
-            y_throttle[loaded_elements] = throttle
+            #y_throttle[loaded_elements] = throttle
+            y_speed[loaded_elements] = speed
             loaded_elements += 1
         #y = np.concatenate(([y_steer],[y_throttle]),axis=0)
         #pdb.set_trace()
     if K.backend() == 'theano':
         X = X.transpose(0, 3, 1, 2)
-    return X,y_steer
+    return X,[y_steer,y_speed]
     #return X, y.T
 
 

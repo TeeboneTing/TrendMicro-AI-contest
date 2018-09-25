@@ -4,7 +4,7 @@ import numpy as np
 import csv
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import random
 import keras.backend as K
 from config_v5 import *
@@ -46,17 +46,45 @@ def preprocess(frame_bgr, verbose=False):
     # resize image
     frame_resized = cv2.resize(frame_cropped, dsize=(w, h))
 
-    # eventually change color space
-    if CONFIG['input_channels'] == 1:
-        frame_resized = np.expand_dims(cv2.cvtColor(frame_resized, cv2.COLOR_BGR2YUV)[:, :, 0], 2)
+    # 1. Fill all BGR color to full color
+    # 2. Fill yellow wall to black wall 
+    frame_flatten = flatten_bgr(frame_resized)
 
     if verbose:
         plt.figure(1), plt.imshow(cv2.cvtColor(frame_bgr, code=cv2.COLOR_BGR2RGB))
         plt.figure(2), plt.imshow(cv2.cvtColor(frame_cropped, code=cv2.COLOR_BGR2RGB))
         plt.figure(3), plt.imshow(cv2.cvtColor(frame_resized, code=cv2.COLOR_BGR2RGB))
+        plt.figure(4), plt.imshow(cv2.cvtColor(frame_flatten, code=cv2.COLOR_BGR2RGB))
         plt.show()
 
-    return frame_resized.astype('float32')
+
+    return frame_flatten.astype('float32')
+
+def flatten_bgr(img):
+    b, g, r = cv2.split(img)
+    
+    r_filter = (r == np.maximum(np.maximum(r, g), b)) & (r >= 120) & (g < 150) & (b < 150)
+    g_filter = (g == np.maximum(np.maximum(r, g), b)) & (g >= 120) & (r < 150) & (b < 150)
+    b_filter = (b == np.maximum(np.maximum(r, g), b)) & (b >= 120) & (r < 150) & (g < 150)
+    
+    y_filter = ((r >= 128) & (g >= 128) & (b < 100))
+    w_filter = ((r >= 200) & (g >= 200) & (b >= 200))
+
+    r[y_filter], g[y_filter] = 255, 255
+    b[np.invert(y_filter)] = 0
+
+    b[b_filter], b[np.invert(b_filter)] = 255, 0
+    r[r_filter], r[np.invert(r_filter)] = 255, 0
+    g[g_filter], g[np.invert(g_filter)] = 255, 0
+
+    r[w_filter] = 255
+    g[w_filter] = 255
+    b[w_filter] = 255
+    flattened = cv2.merge((b, g, r))
+    #pdb.set_trace()
+
+    return flattened
+
 
 
 def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augment_data=True, bias=0.5):
@@ -86,7 +114,8 @@ def load_data_batch(data, batchsize=CONFIG['batchsize'], data_dir='data', augmen
     loaded_elements = 0
     while loaded_elements < batchsize:
 
-        prev2_path, prev1_path, ct_path, steer, throttle, brake, speed, time_stamp, lap  = shuffled_data.pop()
+        #prev2_path, prev1_path, ct_path, steer, throttle, brake, speed, time_stamp, lap  = shuffled_data.pop()
+        prev2_path, prev1_path, ct_path, steer, throttle, brake, speed, time_stamp, lap ,sign_cat  = shuffled_data.pop()
 
         # cast strings to float32
         steer = np.float32(steer)

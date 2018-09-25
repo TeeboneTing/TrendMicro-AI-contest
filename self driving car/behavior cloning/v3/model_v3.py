@@ -56,9 +56,9 @@ def get_nvidia_model(summary=True):
     x = Dense(10, init=init)(x)
     x = LeakyReLU()(x)
     #out = Dense(2, init=init)(x) # (steer,throttle)
-    out = Dense(1, init=init)(x)
-
-    model = Model(input=input_frame, output=out)
+    steer_out = Dense(1, init=init)(x)
+    cmd_speed_out = Dense(1, init=init)(x)
+    model = Model(input=input_frame, output=[steer_out,cmd_speed_out])
 
     if summary:
         model.summary()
@@ -69,7 +69,7 @@ def get_nvidia_model(summary=True):
 if __name__ == '__main__':
 
     # split udacity csv data into training and validation
-    train_data, val_data = split_train_val(csv_driving_data='data/driving_log-human-track-all.csv')
+    train_data, val_data = split_train_val(csv_driving_data='data/driving_log-raymond-and-narrow.csv')
 
     # get network model and compile it (default Adam opt)
     nvidia_net = get_nvidia_model(summary=True)
@@ -80,24 +80,24 @@ if __name__ == '__main__':
             nvidia_net = model_from_json(jfile.read())
         weights_path = sys.argv[2]
         nvidia_net.load_weights(weights_path)
-    #nvidia_net.compile(optimizer='adam', loss='mse')
-    nvidia_net.compile(optimizer='sgd', loss='mae')
+    nvidia_net.compile(optimizer='rmsprop', loss=['mae','mae'])
+    #nvidia_net.compile(optimizer='sgd', loss='mae')
 
     # json dump of model architecture
     with open('logs/model.json', 'w') as f:
         f.write(nvidia_net.to_json())
 
     # define callbacks to save history and weights
-    checkpointer = ModelCheckpoint('model_v3/weights.{epoch:02d}-{val_loss:.3f}.hdf5')
+    checkpointer = ModelCheckpoint('checkpoints/weights.{epoch:02d}-{val_loss:.3f}.hdf5')
     logger = CSVLogger(filename='logs/history.csv')
 
     # start the training
     nvidia_net.fit_generator(
                          generator=DataGenerator(train_data,CONFIG['batchsize']),
-                         steps_per_epoch = 10*(len(train_data)/CONFIG['batchsize']+1),
+                         steps_per_epoch = (len(train_data)/CONFIG['batchsize']+1),
                          #samples_per_epoch=(len(train_data)/CONFIG['batchsize']+1),
-                         epochs=50,
+                         epochs=100,
                          validation_data=DataGenerator(val_data,CONFIG['batchsize'], augment_data=False, bias=1.0),
-                         validation_steps = 3*(len(train_data)/CONFIG['batchsize']+1),
+                         validation_steps = (len(val_data)/CONFIG['batchsize']+1),
                          #nb_val_samples=(len(train_data)/CONFIG['batchsize']+1),
                          callbacks=[checkpointer, logger])

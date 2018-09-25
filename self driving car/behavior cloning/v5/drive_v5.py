@@ -143,14 +143,14 @@ if __name__ == '__main__':
     # load model from json
     #json_path ='pretrained/model.json'
     #json_path ='logs/model.json'
-    json_path = sys.argv[1]
+    json_path = "model_weights_v5/model.json"
     with open(json_path) as jfile:
         model = model_from_json(jfile.read())
 
     # load model weights
     # weights_path = os.path.join('checkpoints', os.listdir('checkpoints')[-1])
     #weights_path = 'pretrained/model.hdf5'
-    weights_path = sys.argv[2]
+    weights_path = "model_weights_v5/weights.06-3.037.hdf5"
     print('Loading weights: {}'.format(weights_path))
     model.load_weights(weights_path)
 

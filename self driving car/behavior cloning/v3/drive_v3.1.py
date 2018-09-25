@@ -19,11 +19,13 @@ from keras.models import model_from_json
 from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array
 import sys
 
+from driving_package.sign_detector import SignDetector
+
 # V3.1 using PID control to get throttle value
 from sample_bot import PID
 
 THROTTLE_PID_Kp             = 0.26
-THROTTLE_PID_Ki             = 0.015
+THROTTLE_PID_Ki             = 0.0
 THROTTLE_PID_Kd             = 0.007
 THROTTLE_PID_max_integral   = 1.0
 throttle_pid                = PID(Kp=THROTTLE_PID_Kp  , Ki=THROTTLE_PID_Ki  , Kd=THROTTLE_PID_Kd  , max_integral=THROTTLE_PID_max_integral)
@@ -52,8 +54,15 @@ def telemetry(sid, data):
 
     brakes = float(data["brakes"])    
 
+    sign_array, sign_name = sign_det.detect(np.asarray(image))
+    print(sign_name)
+    #if sign_name != "Nothing":
+    #    print("Sing Detected: {sign_name}")
+
     # frames incoming from the simulator are in RGB format
     image_array = cv2.cvtColor(np.asarray(image), code=cv2.COLOR_RGB2BGR)
+
+    
 
     # perform preprocessing (crop, resize etc.)
     image_array = preprocess(frame_bgr=image_array)
@@ -82,6 +91,12 @@ def telemetry(sid, data):
 
     steering_angle, cmd_speed = model.predict(image_array, batch_size=1)
     steering_angle = float(steering_angle)
+
+    if sign_name == "ForkLeft":
+        steering_angle = -5
+    elif sign_name == "ForkRight":
+        steering_angle = 5
+
     cmd_speed = float(cmd_speed)
     #throttle = throttle_control(0.02,speed,steering_angle)
 
@@ -97,6 +112,7 @@ def telemetry(sid, data):
             backward_switch = False
             backward_counter = 0
     """
+
 
     print(speed,steering_angle, throttle)
     send_control(steering_angle, throttle)
@@ -130,16 +146,20 @@ if __name__ == '__main__':
     # load model from json
     #json_path ='pretrained/model.json'
     #json_path ='logs/model.json'
-    json_path = sys.argv[1]
+    json_path = 'model_weights_v3.1/model.json'
     with open(json_path) as jfile:
         model = model_from_json(jfile.read())
 
     # load model weights
     # weights_path = os.path.join('checkpoints', os.listdir('checkpoints')[-1])
     #weights_path = 'pretrained/model.hdf5'
-    weights_path = sys.argv[2]
+    weights_path = 'model_weights_v3.1/weights.39-3.804.hdf5'
     print('Loading weights: {}'.format(weights_path))
     model.load_weights(weights_path)
+
+
+    MODEL_SIGN = "v3/model/sign_16x32_3232_8_201809152226_0.9993_0.9703_53k.hdf5"
+    sign_det = SignDetector(MODEL_SIGN)
 
     # wrap Flask application with engineio's middleware
     app = socketio.Middleware(sio, app)
