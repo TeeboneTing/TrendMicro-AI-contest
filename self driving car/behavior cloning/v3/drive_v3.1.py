@@ -20,6 +20,7 @@ from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_a
 import sys
 
 from driving_package.sign_detector import SignDetector
+from driving_package.lane_observation import LaneObserver
 
 # V3.1 using PID control to get throttle value
 from sample_bot import PID
@@ -56,13 +57,14 @@ def telemetry(sid, data):
 
     sign_array, sign_name = sign_det.detect(np.asarray(image))
     print(sign_name)
+
+    lane_type = lane_det.predict(np.asarray(image), data['speed'], data['steering_angle'])
+
     #if sign_name != "Nothing":
     #    print("Sing Detected: {sign_name}")
 
     # frames incoming from the simulator are in RGB format
     image_array = cv2.cvtColor(np.asarray(image), code=cv2.COLOR_RGB2BGR)
-
-    
 
     # perform preprocessing (crop, resize etc.)
     image_array = preprocess(frame_bgr=image_array)
@@ -89,13 +91,21 @@ def telemetry(sid, data):
     # V3.1: prediction including steering and cmd_speed.
     # Using PID control to get throttle from cmd_speed and current speed
 
-    steering_angle, cmd_speed = model.predict(image_array, batch_size=1)
+    if lane_type == LaneObserver.LANE_TYPE_NARROW:
+        print('Narrow')
+        steering_angle, cmd_speed = narrow_model.predict(image_array, batch_size=1)
+        cmd_speed = 1.3
+    else:
+        steering_angle, cmd_speed = model.predict(image_array, batch_size=1)
+        cmd_speed -= 0.1
     steering_angle = float(steering_angle)
 
     if sign_name == "ForkLeft":
-        steering_angle = -5
+        steering_angle += -3
+        cmd_speed = 1.3
     elif sign_name == "ForkRight":
-        steering_angle = 5
+        steering_angle += 3
+        cmd_speed = 1.3
 
     cmd_speed = float(cmd_speed)
     #throttle = throttle_control(0.02,speed,steering_angle)
@@ -144,22 +154,30 @@ if __name__ == '__main__':
     from keras.models import model_from_json
 
     # load model from json
-    #json_path ='pretrained/model.json'
-    #json_path ='logs/model.json'
-    json_path = 'model_weights_v3.1/model.json'
+    json_path = 'model_weights_v3.1/model-wide.json'
     with open(json_path) as jfile:
         model = model_from_json(jfile.read())
 
     # load model weights
-    # weights_path = os.path.join('checkpoints', os.listdir('checkpoints')[-1])
-    #weights_path = 'pretrained/model.hdf5'
-    weights_path = 'model_weights_v3.1/weights.39-3.804.hdf5'
+    weights_path = 'model_weights_v3.1/model-wide-weights.68-3.679.hdf5'
     print('Loading weights: {}'.format(weights_path))
     model.load_weights(weights_path)
 
+    # load narrow lane model from json
+    json_path = 'model_weights_v3.1/model-narrow.json'
+    with open(json_path) as jfile:
+        narrow_model = model_from_json(jfile.read())
+
+    # load narrow lane model weights
+    weights_path = 'model_weights_v3.1/model-narrow-weights.33-4.037.hdf5'
+    print('Loading weights: {}'.format(weights_path))
+    narrow_model.load_weights(weights_path)
 
     MODEL_SIGN = "v3/model/sign_16x32_3232_8_201809152226_0.9993_0.9703_53k.hdf5"
     sign_det = SignDetector(MODEL_SIGN)
+    lane_det = LaneObserver()
+
+    
 
     # wrap Flask application with engineio's middleware
     app = socketio.Middleware(sio, app)
